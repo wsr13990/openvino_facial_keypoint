@@ -79,8 +79,8 @@ def capture_stream(args):
                 face_image = face_image.transpose((2, 0, 1))
                 face_image = face_image.reshape(1, *face_image.shape)
 
+                # Perform async inference
                 plugin.async_inference(face_image)
-
                 if plugin.wait() == 0:
                     result = plugin.extract_output()
                     for i in range(0, result.shape[1], 2):
