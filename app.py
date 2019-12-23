@@ -52,44 +52,42 @@ def capture_stream(args):
     width = int(net_input_shape[2])
     height = int(net_input_shape[3])
 
-    out = cv2.VideoWriter('out.mp4', 0x00000021, 30, (width, height))
-
     # Re-size the frame
     while cap.isOpened():
         cv2.namedWindow("preview")
         flag, frame = cap.read()
+
         faces = face_cascade.detectMultiScale(frame, 1.2, 2)
-        for (x, y, w, h) in faces:
-            frame = frame[y:y+h, x:x+w]
-        print(frame.shape)
-        ori_width = frame.shape[1]
-        ori_height = frame.shape[0]
+        if faces is not None:
+            for (ix, iy, w, h) in faces:
+                face_image = frame[iy:iy+h, ix:ix+w]
+                frame = cv2.rectangle(
+                    frame, (ix, iy), (ix+w, iy+h), (0, 255, 0), 2)
+                ori_width = face_image.shape[1]
+                ori_height = face_image.shape[0]
+
+                face_image = cv2.resize(face_image, (width, height))
+                face_image = face_image.transpose((2, 0, 1))
+                face_image = face_image.reshape(1, *face_image.shape)
+
+                plugin.async_inference(face_image)
+
+                if plugin.wait() == 0:
+                    result = plugin.extract_output()
+                    for i in range(0, result.shape[1], 2):
+                        x, y = int(
+                            ix+result[0][i]*ori_width), iy+int(result[0][i+1]*ori_height)
+                        cv2.circle(frame, (x, y), 1, (0, 255, 0), 2)
         if not flag:
             break
         key_pressed = cv2.waitKey(60)
-
-        width_ratio = ori_width/width
-        height_ratio = ori_height/height
-        resized_frame = cv2.resize(frame, (width, height))
-        resized_frame = resized_frame.transpose((2, 0, 1))
-        resized_frame = resized_frame.reshape(1, *resized_frame.shape)
-
-        plugin.async_inference(resized_frame)
-
-        if plugin.wait() == 0:
-            result = plugin.extract_output()
-            for i in range(0, result.shape[1], 2):
-                x, y = int(
-                    result[0][i]*ori_width), int(result[0][i+1]*ori_height)
-                cv2.circle(frame, (x, y), 1, (0, 255, 0), 2)
-            cv2.imshow("preview", frame)
+        cv2.imshow("preview", frame)
     # Write out the frame, depending on image or video
         if key_pressed == 27:
             cv2.destroyWindow("preview")
             break
     # Close the stream and any windows at the end of the application
     print(frame)
-    out.release()
     cap.release()
     cv2.destroyAllWindows()
 
