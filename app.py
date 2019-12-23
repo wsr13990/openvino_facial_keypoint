@@ -13,11 +13,10 @@ def get_args():
     '''
     parser = argparse.ArgumentParser("Run inference on an input video")
     # -- Create the descriptions for the commands
-    m_desc = "The location of the model XML file"
-    i_desc = "The location of the input file"
     d_desc = "The device name, if not 'CPU'"
     c_desc = "The color of the bounding boxes to draw; RED, GREEN or BLUE"
-    ct_desc = "The confidence threshold to use with the bounding boxes"
+    lw_desc = "Haarcascader Line width"
+    kw_desc = "Keypoint line width"
 
     # -- Add required and optional groups
     parser._action_groups.pop()
@@ -27,12 +26,21 @@ def get_args():
     # -- Create the arguments
     optional.add_argument("-d", help=d_desc, default='CPU')
     optional.add_argument("-c", help=c_desc, default='BLUE')
+    optional.add_argument("-lw", help=lw_desc, default=1)
+    optional.add_argument("-kw", help=kw_desc, default=2)
     args = parser.parse_args()
 
     return args
 
 
 def capture_stream(args):
+    if args.c == 'YELLOW':
+        color = (0, 255, 0)
+    elif args.c == 'BLUE':
+        color = (255, 0, 0)
+    elif args.c == 'RED':
+        color = (0, 0, 255)
+
     # Initialize the Inference Engine
     plugin = Network()
     face_cascade = cv2.CascadeClassifier(
@@ -61,8 +69,9 @@ def capture_stream(args):
         if faces is not None:
             for (ix, iy, w, h) in faces:
                 face_image = frame[iy:iy+h, ix:ix+w]
+                # Draw facial rectangle
                 frame = cv2.rectangle(
-                    frame, (ix, iy), (ix+w, iy+h), (0, 255, 0), 2)
+                    frame, (ix, iy), (ix+w, iy+h), color, int(args.lw))
                 ori_width = face_image.shape[1]
                 ori_height = face_image.shape[0]
 
@@ -77,7 +86,8 @@ def capture_stream(args):
                     for i in range(0, result.shape[1], 2):
                         x, y = int(
                             ix+result[0][i]*ori_width), iy+int(result[0][i+1]*ori_height)
-                        cv2.circle(frame, (x, y), 1, (0, 255, 0), 2)
+                        # Draw Facial key points
+                        cv2.circle(frame, (x, y), 1, color, int(args.kw))
         if not flag:
             break
         key_pressed = cv2.waitKey(60)
